@@ -34,12 +34,14 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media.Imaging;
 using System.Windows.Navigation;
+using Microsoft.Azure.CognitiveServices.Vision.CustomVision.Prediction;
 using Newtonsoft.Json;
 using OpenCvSharp;
 using OpenCvSharp.Extensions;
@@ -235,11 +237,38 @@ namespace LiveCameraSample
             // Encode image. 
             var jpg = frame.Image.ToMemoryStream(".jpg", s_jpegParams);
             // Submit image to API. 
-            var analysis = await _visionClient.GetTagsAsync(jpg);
+            //var analysis = await _visionClient.GetTagsAsync(jpg);
             // Count the API call. 
             Properties.Settings.Default.VisionAPICallCount++;
+
+            var results = await Prediction(jpg).ConfigureAwait(false);
+
             // Output. 
-            return new LiveCameraResult { Tags = analysis.Tags };
+            return new LiveCameraResult { Tags = results };
+        }
+
+        private const string SouthCentralUsEndpoint = "https://southcentralus.api.cognitive.microsoft.com";
+        private const string PredictionKey = "65b3c87732d0419887300e26dfc6baf1";
+        private static Guid projectId = new Guid("963fe94d-346e-422d-b788-b1eb03039908");
+
+        private async Task<VisionAPI.Contract.Tag[]> Prediction(Stream stream)
+        {
+            try
+            {
+                CustomVisionPredictionClient endpoint = new CustomVisionPredictionClient()
+                {
+                    ApiKey = PredictionKey,
+                    Endpoint = SouthCentralUsEndpoint
+                };
+
+                var result = await endpoint.PredictImageAsync(projectId, stream);
+                var pistols = result.Predictions.Where(p => p.TagName == "pistol" && p.Probability > 0.75).ToList();
+                return pistols.Select(p => new VisionAPI.Contract.Tag() { Name = $"{p.TagName}: ${p.Probability:P1}" }).ToArray();
+            }
+            catch (Exception e)
+            {
+                return new[] { new VisionAPI.Contract.Tag() { Name = "" } };
+            }
         }
 
         /// <summary> Function which submits a frame to the Computer Vision API for celebrity
