@@ -262,7 +262,7 @@ namespace LiveCameraSample
                 };
 
                 var result = await endpoint.PredictImageAsync(projectId, stream);
-                var pistols = result.Predictions.Where(p => p.TagName == "pistol" && p.Probability > 0.75).ToList();
+                var pistols = result.Predictions.Where(p => p.TagName == "pistol" && p.Probability > 0.75).OrderBy(e => e.Probability).ToList();
                 return pistols.Select(p => new VisionAPI.Contract.Tag() { Name = $"{p.TagName}: ${p.Probability:P1}" }).ToArray();
             }
             catch (Exception e)
