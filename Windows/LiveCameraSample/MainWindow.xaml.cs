@@ -36,12 +36,16 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Net.Http;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media.Imaging;
 using System.Windows.Navigation;
 using Microsoft.Azure.CognitiveServices.Vision.CustomVision.Prediction;
+using Microsoft.Azure.EventGrid;
+using Microsoft.Azure.EventGrid.Models;
+using Microsoft.Rest;
 using Newtonsoft.Json;
 using OpenCvSharp;
 using OpenCvSharp.Extensions;
@@ -263,6 +267,16 @@ namespace LiveCameraSample
 
                 var result = await endpoint.PredictImageAsync(projectId, stream);
                 var pistols = result.Predictions.Where(p => p.TagName == "pistol" && p.Probability > 0.75).OrderBy(e => e.Probability).ToList();
+
+                if(pistols.Count > 0)
+                {
+                    ServiceClientCredentials credentials = new TopicCredentials("jVyvj5pqIZeR1t/xgBAjhkCd3UfLNkJV89Smpsm6XeE=");
+                    var client = new EventGridClient(credentials);
+                    var eventGridEvent = new EventGridEvent(Guid.NewGuid().ToString(), "FirearmDetected", pistols.First(), "FirearmDetected", DateTime.UtcNow, "1");
+                    // Publish the events
+                    await client.PublishEventsAsync("km-firearm-topic.eastus2-1.eventgrid.azure.net", new[] { eventGridEvent });
+                }
+
                 return pistols.Select(p => new VisionAPI.Contract.Tag() { Name = $"{p.TagName}: ${p.Probability:P1}" }).ToArray();
             }
             catch (Exception e)
