@@ -254,6 +254,8 @@ namespace LiveCameraSample
         private const string SouthCentralUsEndpoint = "https://southcentralus.api.cognitive.microsoft.com";
         private const string PredictionKey = "65b3c87732d0419887300e26dfc6baf1";
         private static Guid projectId = new Guid("963fe94d-346e-422d-b788-b1eb03039908");
+        private string MessageWhenGunIsDetected = "Firearm Detected";
+        private double ProbabilityThreshold = 0.30;
 
         private async Task<VisionAPI.Contract.Tag[]> Prediction(Stream stream)
         {
@@ -266,7 +268,7 @@ namespace LiveCameraSample
                 };
 
                 var result = await endpoint.PredictImageAsync(projectId, stream);
-                var pistols = result.Predictions.Where(p => p.TagName == "pistol" && p.Probability > 0.75).OrderBy(e => e.Probability).ToList();
+                var pistols = result.Predictions.Where(p => p.TagName == "pistol" && p.Probability > ProbabilityThreshold).OrderBy(e => e.Probability).ToList();
 
                 if(pistols.Count > 0)
                 {
@@ -277,11 +279,11 @@ namespace LiveCameraSample
                     await client.PublishEventsAsync("km-firearm-topic.eastus2-1.eventgrid.azure.net", new[] { eventGridEvent });
                 }
 
-                return pistols.Select(p => new VisionAPI.Contract.Tag() { Name = $"{p.TagName}: ${p.Probability:P1}" }).ToArray();
+                return pistols.Select(p => new VisionAPI.Contract.Tag() { Name = MessageWhenGunIsDetected }).ToArray();
             }
             catch (Exception e)
             {
-                return new[] { new VisionAPI.Contract.Tag() { Name = "" } };
+                return new[] { new VisionAPI.Contract.Tag() { Name = $"{e.Message}" } };
             }
         }
 
